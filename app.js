@@ -40,13 +40,13 @@ let posts = [];
 app.get("/", (req, res) => {
     BlogPost.find({}, (err, result) => {
         if (!err) {
-            console.log(result);
+            // console.log(result);
             if (result.length === 0) {
                 posts = [{ postTitle: "Home", postBody: homeStartingContent }];
             } else {
                 posts = result;
             }
-            console.log(posts);
+            // console.log(posts);
             res.render("home", {
                 posts: posts,
             });
