@@ -1,5 +1,6 @@
 const express = require("express");
 const ejs = require("ejs");
+const mongoose = require("mongoose");
 const lodash = require("lodash");
 
 const homeStartingContent =
@@ -16,12 +17,40 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded());
 app.use(express.static("public"));
 
-let posts = [{ postTitle: "Home", postBody: homeStartingContent }];
+const connectDB = async () => {
+    try {
+        const conn = await mongoose.connect(process.env.MONGO_URI);
+        console.log(`MongoDB Connected: ${conn.connection.host}`);
+    } catch (error) {
+        console.log(error);
+        process.exit(1);
+    }
+};
+
+const postSchema = {
+    postTitle: String,
+    postBody: String,
+};
+
+const BlogPost = mongoose.model("BlogPost", postSchema);
+
+let posts = [];
 
 // home page
 app.get("/", (req, res) => {
-    res.render("home", {
-        posts: posts,
+    BlogPost.find({}, (err, result) => {
+        if (!err) {
+            console.log(result);
+            if (result.length === 0) {
+                posts = [{ postTitle: "Home", postBody: homeStartingContent }];
+            } else {
+                posts = result;
+            }
+            console.log(posts);
+            res.render("home", {
+                posts: posts,
+            });
+        }
     });
 });
 
@@ -41,25 +70,32 @@ app.get("/compose", (req, res) => {
 });
 
 app.post("/compose", (req, res) => {
-    let post = { postTitle: req.body.postTitle, postBody: req.body.postBody };
-    posts.push(post);
-    res.redirect("/");
+    const newPost = new BlogPost({
+        postTitle: req.body.postTitle,
+        postBody: req.body.postBody,
+    });
+    newPost.save({}, (err) => {
+        if (!err) {
+            res.redirect("/");
+        } else {
+            console.log("\nCannot save post");
+            console.log(err);
+        }
+    });
 });
 
 // posts page
 app.get("/posts/:postID", (req, res) => {
-    for (let post of posts) {
-        if (
-            lodash.lowerCase(req.params.postID) ===
-            lodash.lowerCase(post.postTitle)
-        ) {
-            console.log("match found");
-            console.log(post);
+    BlogPost.findOne({ postTitle: req.params.postID }, (err, post) => {
+        if (!err) {
             res.render("post", { post: post });
         }
-    }
+    });
 });
 
-app.listen(3000, function () {
-    console.log("Server started on port 3000");
+connectDB().then(() => {
+    app.listen(PORT, () => {
+        console.log("Server started on port 3000");
+        console.log("listening for requests");
+    });
 });
